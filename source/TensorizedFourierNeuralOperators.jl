@@ -107,42 +107,41 @@ function (conv::TuckerSpectralConv{D})(
 end
 
 # (m₁ × ch_in × b) -> (m₁ × ch_out × b)
-function compute_tensor_contractions(ω_truncated::AbstractArray{<:Number,3}, params::NamedTuple)
+function compute_tensor_contractions(x::AbstractArray{<:Number,3}, params::NamedTuple)
     core = params.core          # (r_out × r_in × r₁)
     U_in = params.U_in          # (ch_in × r_in)
     U_out = params.U_out        # (ch_out × r_out)
     U₁ = only(params.U_modes)   # (r₁ × m₁)
 
-    (m₁, ch_in, b) = size(ω_truncated)
+    (m₁, ch_in, b) = size(x)
     (r_out, r_in, r₁) = size(core)
-    ch_out = size(U_out, 1)
 
     # contract r₁ -> m₁
-    core_flat₁ = reshape(core, r_out * r_in, r₁)        # (r_out⋅r_in × r₁)
-    S_flat₁ = core_flat₁ * U₁                           # (r_out⋅r_in × m₁)
-    S = reshape(S_flat₁, r_out, r_in, m₁)               # (r_out × r_in × m₁)
+    core_flat₁ = reshape(core, r_out * r_in, r₁)   # (r_out⋅r_in × r₁)
+    S_flat₁ = core_flat₁ * U₁                      # (r_out⋅r_in × m₁)
+    S = reshape(S_flat₁, r_out, r_in, m₁)          # (r_out × r_in × m₁)
 
     # project input: contract ch_in -> r_in (batching over batches)
-    ω_proj_flat = batched_mul(ω_truncated, U_in)        # (m₁ × r_in × b)
+    y = batched_mul(x, U_in)                       # (m₁ × r_in × b)
 
     # spectral convolution: contract r_in -> r_out (batching over m₁)
-    ω_proj_perm = permutedims(ω_proj_flat, (2, 3, 1))   # (r_in × b × m₁)
-    y_flat = batched_mul(S, ω_proj_perm)                # (r_out × b × m₁)
+    y_perm = permutedims(y, (2, 3, 1))             # (r_in × b × m₁)
+    z = batched_mul(S, y_perm)                     # (r_out × b × m₁)
 
     # project output: contract r_out -> ch_out (batching over m₁)
-    output_flat = batched_mul(U_out, y_flat)            # (ch_out × b × m₁)
-    output = permutedims(output_flat, (3, 1, 2))        # (m₁ × ch_out × b)
+    output_flat = batched_mul(U_out, z)            # (ch_out × b × m₁)
+    output = permutedims(output_flat, (3, 1, 2))   # (m₁ × ch_out × b)
     return output
 end
 
 # (m₁ × m₂ × ch_in × b) -> (m₁ × m₂ × ch_out × b)
-function compute_tensor_contractions(ω_truncated::AbstractArray{<:Number,4}, params::NamedTuple)
+function compute_tensor_contractions(x::AbstractArray{<:Number,4}, params::NamedTuple)
     core = params.core          # (r_out × r_in × r₁ × r₂)
     U_in = params.U_in          # (ch_in × r_in)
     U_out = params.U_out        # (ch_out × r_out)
     (U₁, U₂) = params.U_modes   # (rₖ × mₖ)
 
-    (m₁, m₂, ch_in, b) = size(ω_truncated)
+    (m₁, m₂, ch_in, b) = size(x)
     (r_out, r_in, r₁, r₂) = size(core)
     ch_out = size(U_out, 1)
 
@@ -157,29 +156,29 @@ function compute_tensor_contractions(ω_truncated::AbstractArray{<:Number,4}, pa
     S = reshape(S_flat₂, r_out, r_in, m₁, m₂)           # (r_out × r_in × m₁ × m₂)
 
     # project input: contract ch_in -> r_in (batching over batches)
-    ω_flat = reshape(ω_truncated, m₁ * m₂, ch_in, b)    # (m₁⋅m₂ × ch_in × b)
-    ω_proj_flat = batched_mul(ω_flat, U_in)             # (m₁⋅m₂ × r_in × b)
+    x_flat = reshape(x, m₁ * m₂, ch_in, b)              # (m₁⋅m₂ × ch_in × b)
+    y = batched_mul(x_flat, U_in)                       # (m₁⋅m₂ × r_in × b)
 
     # spectral convolution: contract r_in -> r_out (batching over m₁ × m₂)
     S_flat = reshape(S, r_out, r_in, m₁ * m₂)           # (r_out × r_in × m₁⋅m₂)
-    ω_proj_perm = permutedims(ω_proj_flat, (2, 3, 1))   # (r_in × b × m₁⋅m₂)
-    y_flat = batched_mul(S_flat, ω_proj_perm)           # (r_out × b × m₁⋅m₂)
+    y_perm = permutedims(y, (2, 3, 1))                  # (r_in × b × m₁⋅m₂)
+    z = batched_mul(S_flat, y_perm)                     # (r_out × b × m₁⋅m₂)
 
     # project output: contract r_out -> ch_out (batching over m₁ × m₂)
-    output_flat = batched_mul(U_out, y_flat)            # (ch_out × b × m₁⋅m₂)
+    output_flat = batched_mul(U_out, z)                 # (ch_out × b × m₁⋅m₂)
     output_perm = permutedims(output_flat, (3, 1, 2))   # (m₁⋅m₂ × ch_out × b)
     output = reshape(output_perm, m₁, m₂, ch_out, b)    # (m₁ × m₂ × ch_out × b)
     return output
 end
 
 # (m₁ × m₂ × m₃ × ch_in × b) -> (m₁ × m₂ × m₃ × ch_out × b)
-function compute_tensor_contractions(ω_truncated::AbstractArray{<:Number,5}, params::NamedTuple)
+function compute_tensor_contractions(x::AbstractArray{<:Number,5}, params::NamedTuple)
     core = params.core              # (r_out × r_in × r₁ × r₂ × r₃)
     U_in = params.U_in              # (ch_in × r_in)
     U_out = params.U_out            # (ch_out × r_out)
     (U₁, U₂, U₃) = params.U_modes   # (rₖ × mₖ)
 
-    (m₁, m₂, m₃, ch_in, b) = size(ω_truncated)
+    (m₁, m₂, m₃, ch_in, b) = size(x)
     (r_out, r_in, r₁, r₂, r₃) = size(core)
     ch_out = size(U_out, 1)
 
@@ -199,16 +198,16 @@ function compute_tensor_contractions(ω_truncated::AbstractArray{<:Number,5}, pa
     S = reshape(S_flat₃, r_out, r_in, m₁, m₂, m₃)           # (r_out × r_in × m₁ × m₂ × m₃)
 
     # project input: contract ch_in -> r_in (batching over batches)
-    ω_flat = reshape(ω_truncated, m₁ * m₂ * m₃, ch_in, b)   # (m₁⋅m₂⋅m₃ × ch_in × b)
-    ω_proj_flat = batched_mul(ω_flat, U_in)                 # (m₁⋅m₂⋅m₃ × r_in × b)
+    x_flat = reshape(x, m₁ * m₂ * m₃, ch_in, b)             # (m₁⋅m₂⋅m₃ × ch_in × b)
+    y = batched_mul(x_flat, U_in)                           # (m₁⋅m₂⋅m₃ × r_in × b)
 
     # spectral convolution: contract r_in -> r_out (batching over m₁ × m₂ × m₃)
     S_flat = reshape(S, r_out, r_in, m₁ * m₂ * m₃)          # (r_out × r_in × m₁⋅m₂⋅m₃)
-    ω_proj_perm = permutedims(ω_proj_flat, (2, 3, 1))       # (r_in × b × m₁⋅m₂⋅m₃)
-    y_flat = batched_mul(S_flat, ω_proj_perm)               # (r_out × b × m₁⋅m₂⋅m₃)
+    y_perm = permutedims(y, (2, 3, 1))                      # (r_in × b × m₁⋅m₂⋅m₃)
+    z = batched_mul(S_flat, y_perm)                         # (r_out × b × m₁⋅m₂⋅m₃)
 
     # project output: contract r_out -> ch_out (batching over m₁ × m₂ × m₃)
-    output_flat = batched_mul(U_out, y_flat)                # (ch_out × b × m₁⋅m₂⋅m₃)
+    output_flat = batched_mul(U_out, z)                     # (ch_out × b × m₁⋅m₂⋅m₃)
     output_perm = permutedims(output_flat, (3, 1, 2))       # (m₁⋅m₂⋅m₃ × ch_out × b)
     output = reshape(output_perm, m₁, m₂, m₃, ch_out, b)    # (m₁ × m₂ × m₃ × ch_out × b)
     return output
