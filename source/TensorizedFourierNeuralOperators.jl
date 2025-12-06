@@ -106,7 +106,7 @@ function (conv::TuckerSpectralConv{D})(
     return (output, states)
 end
 
-# (m₁ × ch_in × b) -> (m₁ × ch_out × b)
+# 1D case: (m₁ × ch_in × b) -> (m₁ × ch_out × b)
 function compute_tensor_contractions(x::AbstractArray{<:Number,3}, params::NamedTuple)
     core = params.core          # (r_out × r_in × r₁)
     U_in = params.U_in          # (ch_in × r_in)
@@ -134,7 +134,7 @@ function compute_tensor_contractions(x::AbstractArray{<:Number,3}, params::Named
     return output
 end
 
-# (m₁ × m₂ × ch_in × b) -> (m₁ × m₂ × ch_out × b)
+# 2D case: (m₁ × m₂ × ch_in × b) -> (m₁ × m₂ × ch_out × b)
 function compute_tensor_contractions(x::AbstractArray{<:Number,4}, params::NamedTuple)
     core = params.core          # (r_out × r_in × r₁ × r₂)
     U_in = params.U_in          # (ch_in × r_in)
@@ -171,7 +171,7 @@ function compute_tensor_contractions(x::AbstractArray{<:Number,4}, params::Named
     return output
 end
 
-# (m₁ × m₂ × m₃ × ch_in × b) -> (m₁ × m₂ × m₃ × ch_out × b)
+# 3D case: (m₁ × m₂ × m₃ × ch_in × b) -> (m₁ × m₂ × m₃ × ch_out × b)
 function compute_tensor_contractions(x::AbstractArray{<:Number,5}, params::NamedTuple)
     core = params.core              # (r_out × r_in × r₁ × r₂ × r₃)
     U_in = params.U_in              # (ch_in × r_in)
