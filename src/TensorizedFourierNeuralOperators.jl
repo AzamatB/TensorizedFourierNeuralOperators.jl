@@ -4,6 +4,8 @@ module TensorizedFourierNeuralOperators
 #
 # See arxiv.org/abs/2310.00120 for details.
 
+export TuckerSpectralConv
+
 using Lux
 using FFTW
 using Random
