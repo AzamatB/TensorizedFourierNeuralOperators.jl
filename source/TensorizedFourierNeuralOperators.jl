@@ -94,8 +94,7 @@ function (conv::TuckerSpectralConv{D})(
     # perform tensor contractions in truncated frequency space: channels_in -> channels_out
     y = compute_tensor_contractions(ω_truncated, params)   # (modes..., channels_out, batches)
 
-    # pad truncated frequencies at the end with zeros
-    # to restore original frequency dimensions: modes -> freq_dims
+    # pad truncated frequencies with zeros to restore original frequency dimensions: modes -> freq_dims
     pad_dims = size(ω)[1:D] .- size(y)[1:D]
     pad_tuple = expand_pad_dims(pad_dims)
     dims = ntuple(identity, Val(D))
