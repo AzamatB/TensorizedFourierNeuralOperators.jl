@@ -4,7 +4,7 @@ module TensorizedFourierNeuralOperators
 #
 # See arxiv.org/abs/2310.00120 for details.
 
-export TuckerSpectralConv
+export FactorizedSpectralConv
 
 using Lux
 using FFTW
@@ -12,8 +12,8 @@ using Random
 using NNlib: batched_mul, pad_constant
 using NeuralOperators: FourierTransform, expand_pad_dims, inverse, transform, truncate_modes
 
-# Tucker–Tensorized Spectral Convolution Layer
-struct TuckerSpectralConv{D} <: Lux.AbstractLuxLayer
+# Tucker–Factorized Spectral Convolution Layer
+struct FactorizedSpectralConv{D} <: Lux.AbstractLuxLayer
     channels_in::Int
     channels_out::Int
     rank_in::Int
@@ -22,7 +22,7 @@ struct TuckerSpectralConv{D} <: Lux.AbstractLuxLayer
     fourier_transform::FourierTransform{ComplexF32,NTuple{D,Int}}
 end
 
-function TuckerSpectralConv(
+function FactorizedSpectralConv(
     channels::Pair{Int,Int},
     modes::NTuple{D,Int};
     rank_in::Int,
@@ -32,12 +32,12 @@ function TuckerSpectralConv(
 ) where {D}
     (channels_in, channels_out) = channels
     fourier_transform = FourierTransform{ComplexF32}(modes, shift)
-    return TuckerSpectralConv{D}(
+    return FactorizedSpectralConv{D}(
         channels_in, channels_out, rank_in, rank_out, rank_modes, fourier_transform
     )
 end
 
-function Lux.initialparameters(rng::AbstractRNG, layer::TuckerSpectralConv{D}) where {D}
+function Lux.initialparameters(rng::AbstractRNG, layer::FactorizedSpectralConv{D}) where {D}
     fourier_transform = layer.fourier_transform
     T = eltype(fourier_transform)
     C = complex(T)
@@ -61,11 +61,11 @@ function Lux.initialparameters(rng::AbstractRNG, layer::TuckerSpectralConv{D}) w
     return params
 end
 
-function Lux.initialstates(rng::AbstractRNG, layer::TuckerSpectralConv)
+function Lux.initialstates(rng::AbstractRNG, layer::FactorizedSpectralConv)
     return (;) # stateless
 end
 
-function Lux.parameterlength(layer::TuckerSpectralConv{D}) where {D}
+function Lux.parameterlength(layer::FactorizedSpectralConv{D}) where {D}
     rank_in = layer.rank_in
     rank_out = layer.rank_out
     rank_modes = layer.rank_modes
@@ -79,13 +79,13 @@ function Lux.parameterlength(layer::TuckerSpectralConv{D}) where {D}
     return len
 end
 
-function Lux.statelength(layer::TuckerSpectralConv)
+function Lux.statelength(layer::FactorizedSpectralConv)
     return 0
 end
 
 # forward pass definition
 # (spatial_dims..., channels_in, batches) -> (spatial_dims..., channels_out, batches)
-function (conv::TuckerSpectralConv{D})(
+function (conv::FactorizedSpectralConv{D})(
     x::AbstractArray, params::NamedTuple, states::NamedTuple
 ) where {D}
     # x: (spatial_dims..., channels_in, batches)
