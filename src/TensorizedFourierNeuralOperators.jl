@@ -141,13 +141,15 @@ function compute_tensor_contractions(
     return output
 end
 
+struct ModeKProduct{K} end
+
 # mode-k tensor-matrix product via matricization followed by batched multiplication
-function mode_k_product(
-    tensor::AbstractArray{N,D}, matrix::AbstractMatrix{N}, k::Int
-) where {N<:Number,D}
+function (::ModeKProduct{K})(
+    tensor::AbstractArray{N,D}, matrix::AbstractMatrix{N}
+) where {K,N<:Number,D}
     dims = size(tensor)
-    dims_before = dims[1:(k-1)]
-    dims_after = dims[(k+1):end]
+    dims_before = NTuple{K-1, Int}(ntuple(i -> dims[i], Val(K-1)))
+    dims_after  = NTuple{D-K, Int}(ntuple(i -> dims[K + i], Val(D-K)))
     (dim_in, dim_out) = size(matrix)
 
     tensor_flat = reshape(tensor, prod(dims_before), dim_in, prod(dims_after))
@@ -158,37 +160,43 @@ end
 
 # 1D case: (r_out × r_in × r₁) -> (r_out × r_in × m₁)
 function expand_tucker_core_tensor(
-    core::AbstractArray{C,3},                 # (r_out × r_in × r₁)
-    U_modes::NTuple{1,DenseMatrix{C}}         # (rₖ × mₖ)
+    core::AbstractArray{C,3},                   # (r_out × r_in × r₁)
+    U_modes::NTuple{1,DenseMatrix{C}}           # (rₖ × mₖ)
 ) where {C<:Complex}
-    k = 2 + 1 # contract r₁ -> m₁
-    S = mode_k_product(core, U_modes[1], k)   # (r_out × r_in × m₁)
+    # contract r₁ -> m₁
+    mode_3_product = ModeKProduct{3}()
+    S = mode_3_product(core, U_modes[1])        # (r_out × r_in × m₁)
     return S
 end
 
 # 2D case: (r_out × r_in × r₁ × r₂) -> (r_out × r_in × m₁ × m₂)
 function expand_tucker_core_tensor(
-    core::AbstractArray{C,4},                     # (r_out × r_in × r₁ × r₂)
-    U_modes::NTuple{2,DenseMatrix{C}}             # (rₖ × mₖ)
+    core::AbstractArray{C,4},                   # (r_out × r_in × r₁ × r₂)
+    U_modes::NTuple{2,DenseMatrix{C}}           # (rₖ × mₖ)
 ) where {C<:Complex}
-    k = 2 + 1 # contract r₁ -> m₁ (batching over r₂)
-    core₂ = mode_k_product(core, U_modes[1], k)   # (r_out × r_in × m₁ × r₂)
-    k = 2 + 2 # contract r₂ -> m₂
-    S = mode_k_product(core₂, U_modes[2], k)      # (r_out × r_in × m₁ × m₂)
+    # contract r₁ -> m₁ (batching over r₂)
+    mode_3_product = ModeKProduct{3}()
+    core₂ = mode_3_product(core, U_modes[1])    # (r_out × r_in × m₁ × r₂)
+    # contract r₂ -> m₂
+    mode_4_product = ModeKProduct{4}()
+    S = mode_4_product(core₂, U_modes[2])       # (r_out × r_in × m₁ × m₂)
     return S
 end
 
 # 3D case: (r_out × r_in × r₁ × r₂ × r₃) -> (r_out × r_in × m₁ × m₂ × m₃)
 function expand_tucker_core_tensor(
-    core::AbstractArray{C,5},                      # (r_out × r_in × r₁ × r₂ × r₃)
-    U_modes::NTuple{3,DenseMatrix{C}}              # (rₖ × mₖ)
+    core::AbstractArray{C,5},                   # (r_out × r_in × r₁ × r₂ × r₃)
+    U_modes::NTuple{3,DenseMatrix{C}}           # (rₖ × mₖ)
 ) where {C<:Complex}
-    k = 2 + 1 # contract r₁ -> m₁ (batching over r₂ × r₃)
-    core₂ = mode_k_product(core, U_modes[1], k)    # (r_out × r_in × m₁ × r₂ × r₃)
-    k = 2 + 2 # contract r₂ -> m₂ (batching over r₃)
-    core₃ = mode_k_product(core₂, U_modes[2], k)   # (r_out × r_in × m₁ × m₂ × r₃)
-    k = 2 + 3 # contract r₃ -> m₃
-    S = mode_k_product(core₃, U_modes[3], k)       # (r_out × r_in × m₁ × m₂ × m₃)
+    # contract r₁ -> m₁ (batching over r₂ × r₃)
+    mode_3_product = ModeKProduct{3}()
+    core₂ = mode_3_product(core, U_modes[1])    # (r_out × r_in × m₁ × r₂ × r₃)
+    # contract r₂ -> m₂ (batching over r₃)
+    mode_4_product = ModeKProduct{4}()
+    core₃ = mode_4_product(core₂, U_modes[2])   # (r_out × r_in × m₁ × m₂ × r₃)
+    # contract r₃ -> m₃
+    mode_5_product = ModeKProduct{5}()
+    S = mode_5_product(core₃, U_modes[3])       # (r_out × r_in × m₁ × m₂ × m₃)
     return S
 end
 
