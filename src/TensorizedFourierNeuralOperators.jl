@@ -16,24 +16,20 @@ using NeuralOperators: FourierTransform, expand_pad_dims, inverse, transform, tr
 struct FactorizedSpectralConv{D} <: Lux.AbstractLuxLayer
     channels_in::Int
     channels_out::Int
-    rank_in::Int
-    rank_out::Int
-    rank_modes::NTuple{D,Int}
+    rank_ratio::Float32
     fourier_transform::FourierTransform{ComplexF32,NTuple{D,Int}}
 end
 
 function FactorizedSpectralConv(
     channels::Pair{Int,Int},
     modes::NTuple{D,Int};
-    rank_in::Int,
-    rank_out::Int,
-    rank_modes::NTuple{D,Int},
+    rank_ratio::Float32=0.5f0,
     shift::Bool=false
 ) where {D}
     (channels_in, channels_out) = channels
     fourier_transform = FourierTransform{ComplexF32}(modes, shift)
     return FactorizedSpectralConv{D}(
-        channels_in, channels_out, rank_in, rank_out, rank_modes, fourier_transform
+        channels_in, channels_out, rank_ratio, fourier_transform
     )
 end
 
@@ -41,12 +37,14 @@ function Lux.initialparameters(rng::AbstractRNG, conv::FactorizedSpectralConv{D}
     fourier_transform = conv.fourier_transform
     T = eltype(fourier_transform)
     C = complex(T)
+    modes = fourier_transform.modes
     channels_in = conv.channels_in
     channels_out = conv.channels_out
-    rank_in = conv.rank_in
-    rank_out = conv.rank_out
-    rank_modes = conv.rank_modes
-    modes = fourier_transform.modes
+    rank_ratio = conv.rank_ratio
+
+    # determine ranks for Tucker decomposition
+    (rank_in, rank_out, rank_modes) = compute_tucker_rank_dims(channels_in, channels_out, modes, rank_ratio)
+
     # simple Glorot-style scaling
     scale = sqrt(2.0f0 / (channels_in + channels_out))
 
@@ -66,10 +64,13 @@ function Lux.initialstates(rng::AbstractRNG, conv::FactorizedSpectralConv)
 end
 
 function Lux.parameterlength(conv::FactorizedSpectralConv{D}) where {D}
-    rank_in = conv.rank_in
-    rank_out = conv.rank_out
-    rank_modes = conv.rank_modes
     modes = conv.fourier_transform.modes
+    channels_in = conv.channels_in
+    channels_out = conv.channels_out
+    rank_ratio = conv.rank_ratio
+
+    # determine ranks for Tucker decomposition
+    (rank_in, rank_out, rank_modes) = compute_tucker_rank_dims(channels_in, channels_out, modes, rank_ratio)
 
     core_len = rank_out * rank_in * prod(rank_modes)
     U_in_len = conv.channels_in * rank_in
@@ -110,6 +111,18 @@ function (conv::FactorizedSpectralConv{D})(
     # apply inverse discrete Fourier transform: freq_dims -> spatial_dims
     output = inverse(fourier_transform, y_padded, x)       # (spatial_dims..., channels_out, batch)
     return (output, states)
+end
+
+function compute_tucker_rank_dims(
+    channels_in::Int,
+    channels_out::Int,
+    modes::NTuple{D,Int},
+    rank_ratio::Float32
+) where {D}
+    rank_in = max(1, floor(Int, channels_in * rank_ratio))
+    rank_out = max(1, floor(Int, channels_out * rank_ratio))
+    rank_modes = ntuple(i -> max(1, floor(Int, modes[i] * rank_ratio)), Val(D))
+    return (rank_in, rank_out, rank_modes)
 end
 
 # (modes..., ch_in, b) -> (modes..., ch_out, b)
