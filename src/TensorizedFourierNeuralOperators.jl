@@ -158,11 +158,11 @@ function compute_tensor_contractions(x::AbstractArray{<:Number,4}, params::Named
     S = reshape(S_flat₂, r_out, r_in, m₁, m₂)           # (r_out × r_in × m₁ × m₂)
 
     # project input: contract ch_in -> r_in (batching over batch)
-    x_flat = reshape(x, m₁ * m₂, ch_in, b)              # (m₁⋅m₂ × ch_in × b)
+    x_flat = reshape(x, :, ch_in, b)                    # (m₁⋅m₂ × ch_in × b)
     y = batched_mul(x_flat, U_in)                       # (m₁⋅m₂ × r_in × b)
 
     # spectral convolution: contract r_in -> r_out (batching over m₁ × m₂)
-    S_flat = reshape(S, r_out, r_in, m₁ * m₂)           # (r_out × r_in × m₁⋅m₂)
+    S_flat = reshape(S, r_out, r_in, :)                 # (r_out × r_in × m₁⋅m₂)
     y_perm = permutedims(y, (2, 3, 1))                  # (r_in × b × m₁⋅m₂)
     z = batched_mul(S_flat, y_perm)                     # (r_out × b × m₁⋅m₂)
 
@@ -200,11 +200,11 @@ function compute_tensor_contractions(x::AbstractArray{<:Number,5}, params::Named
     S = reshape(S_flat₃, r_out, r_in, m₁, m₂, m₃)           # (r_out × r_in × m₁ × m₂ × m₃)
 
     # project input: contract ch_in -> r_in (batching over batch)
-    x_flat = reshape(x, m₁ * m₂ * m₃, ch_in, b)             # (m₁⋅m₂⋅m₃ × ch_in × b)
+    x_flat = reshape(x, :, ch_in, b)                        # (m₁⋅m₂⋅m₃ × ch_in × b)
     y = batched_mul(x_flat, U_in)                           # (m₁⋅m₂⋅m₃ × r_in × b)
 
     # spectral convolution: contract r_in -> r_out (batching over m₁ × m₂ × m₃)
-    S_flat = reshape(S, r_out, r_in, m₁ * m₂ * m₃)          # (r_out × r_in × m₁⋅m₂⋅m₃)
+    S_flat = reshape(S, r_out, r_in, :)                     # (r_out × r_in × m₁⋅m₂⋅m₃)
     y_perm = permutedims(y, (2, 3, 1))                      # (r_in × b × m₁⋅m₂⋅m₃)
     z = batched_mul(S_flat, y_perm)                         # (r_out × b × m₁⋅m₂⋅m₃)
 
