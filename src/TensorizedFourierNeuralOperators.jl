@@ -119,11 +119,11 @@ function compute_tensor_contractions(
     U_out::DenseMatrix{C},              # (ch_out, r_out)
     S::AbstractArray{C,N}               # (r_out, r_in, modes...)
 ) where {C<:Complex,N}
-    shape_x = size(x)
-    modes = shape_x[1:end-2]
-    b = shape_x[end]
     (ch_in, r_in) = size(U_in)
     (ch_out, r_out) = size(U_out)
+    dims = size(x)
+    b = dims[end]
+    modes = NTuple{N - 2,Int}(ntuple(i -> dims[i], Val(N - 2)))
 
     # project input: contract ch_in -> r_in (batching over batch)
     x_flat = reshape(x, :, ch_in, b)                     # (prod(modes), ch_in, b)
@@ -206,8 +206,8 @@ end
 #     U_modes::NTuple{D,DenseMatrix{N}}   # (rₖ × mₖ)
 # ) where {N<:Number,D}
 #     for d in 1:D
-#         k = d + 2
-#         core = mode_k_product(core, U_modes[d], k)
+#         mode_k_product = ModeKProduct{d+2}()
+#         core = mode_k_product(core, U_modes[d])
 #     end
 #     return core
 # end
