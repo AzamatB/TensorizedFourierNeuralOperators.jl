@@ -141,85 +141,65 @@ function compute_tensor_contractions(
     return output
 end
 
+# mode-k tensor-matrix product via matricization followed by batched multiplication
+function mode_k_product(
+    tensor::AbstractArray{N,D}, matrix::AbstractMatrix{N}, k::Int
+) where {N<:Number,D}
+    dims = size(tensor)
+    dims_before = dims[1:(k-1)]
+    dims_after = dims[(k+1):end]
+    (dim_in, dim_out) = size(matrix)
+
+    tensor_flat = reshape(tensor, prod(dims_before), dim_in, prod(dims_after))
+    result_flat = batched_mul(tensor_flat, matrix)
+    result = reshape(result_flat, dims_before..., dim_out, dims_after...)
+    return result
+end
+
 # 1D case: (r_out × r_in × r₁) -> (r_out × r_in × m₁)
 function expand_tucker_core_tensor(
-    core::AbstractArray{C,3}, U_modes::NTuple{1,DenseMatrix{C}}
+    core::AbstractArray{C,3},                 # (r_out × r_in × r₁)
+    U_modes::NTuple{1,DenseMatrix{C}}         # (rₖ × mₖ)
 ) where {C<:Complex}
-    U₁ = only(U_modes)
-    (r_out, r_in, r₁) = size(core)   # (r_out × r_in × r₁)
-    (r₁, m₁) = size(U₁)              # (r₁ × m₁)
-
-    # contract r₁ -> m₁
-    core_flat₁ = reshape(core, r_out * r_in, r₁)   # (r_out⋅r_in × r₁)
-    S_flat₁ = core_flat₁ * U₁                      # (r_out⋅r_in × m₁)
-    S = reshape(S_flat₁, r_out, r_in, m₁)          # (r_out × r_in × m₁)
+    k = 2 + 1 # contract r₁ -> m₁
+    S = mode_k_product(core, U_modes[1], k)   # (r_out × r_in × m₁)
     return S
 end
 
 # 2D case: (r_out × r_in × r₁ × r₂) -> (r_out × r_in × m₁ × m₂)
 function expand_tucker_core_tensor(
-    core::AbstractArray{C,4}, U_modes::NTuple{2,DenseMatrix{C}}
+    core::AbstractArray{C,4},                     # (r_out × r_in × r₁ × r₂)
+    U_modes::NTuple{2,DenseMatrix{C}}             # (rₖ × mₖ)
 ) where {C<:Complex}
-    (U₁, U₂) = U_modes   # (rₖ × mₖ)
-    (r_out, r_in, r₁, r₂) = size(core)   # (r_out × r_in × r₁ × r₂)
-    (r₁, m₁) = size(U₁)                  # (r₁ × m₁)
-    (r₂, m₂) = size(U₂)                  # (r₂ × m₂)
-
-    # contract r₁ -> m₁ (batching over r₂)
-    core_flat₁ = reshape(core, r_out * r_in, r₁, r₂)   # (r_out⋅r_in × r₁ × r₂)
-    S_flat₁ = batched_mul(core_flat₁, U₁)              # (r_out⋅r_in × m₁ × r₂)
-    S₁ = reshape(S_flat₁, r_out, r_in, m₁, r₂)         # (r_out × r_in × m₁ × r₂)
-
-    # contract r₂ -> m₂
-    core_flat₂ = reshape(S₁, r_out * r_in * m₁, r₂)    # (r_out⋅r_in⋅m₁ × r₂)
-    S_flat₂ = core_flat₂ * U₂                          # (r_out⋅r_in⋅m₁ × m₂)
-    S = reshape(S_flat₂, r_out, r_in, m₁, m₂)          # (r_out × r_in × m₁ × m₂)
+    k = 2 + 1 # contract r₁ -> m₁ (batching over r₂)
+    core₂ = mode_k_product(core, U_modes[1], k)   # (r_out × r_in × m₁ × r₂)
+    k = 2 + 2 # contract r₂ -> m₂
+    S = mode_k_product(core₂, U_modes[2], k)      # (r_out × r_in × m₁ × m₂)
     return S
 end
 
 # 3D case: (r_out × r_in × r₁ × r₂ × r₃) -> (r_out × r_in × m₁ × m₂ × m₃)
 function expand_tucker_core_tensor(
-    core::AbstractArray{C,5}, U_modes::NTuple{3,DenseMatrix{C}}
+    core::AbstractArray{C,5},                      # (r_out × r_in × r₁ × r₂ × r₃)
+    U_modes::NTuple{3,DenseMatrix{C}}              # (rₖ × mₖ)
 ) where {C<:Complex}
-    (U₁, U₂, U₃) = U_modes                   # (rₖ × mₖ)
-    (r_out, r_in, r₁, r₂, r₃) = size(core)   # (r_out × r_in × r₁ × r₂ × r₃)
-    (r₁, m₁) = size(U₁)                      # (r₁ × m₁)
-    (r₂, m₂) = size(U₂)                      # (r₂ × m₂)
-    (r₃, m₃) = size(U₃)                      # (r₃ × m₃)
-
-    # contract r₁ -> m₁ (batching over r₂ × r₃)
-    core_flat₁ = reshape(core, r_out * r_in, r₁, r₂ * r₃)   # (r_out⋅r_in × r₁ × r₂⋅r₃)
-    S_flat₁ = batched_mul(core_flat₁, U₁)                   # (r_out⋅r_in × m₁ × r₂⋅r₃)
-    S₁ = reshape(S_flat₁, r_out, r_in, m₁, r₂, r₃)          # (r_out × r_in × m₁ × r₂ × r₃)
-
-    # contract r₂ -> m₂ (batching over r₃)
-    core_flat₂ = reshape(S₁, r_out * r_in * m₁, r₂, r₃)     # (r_out⋅r_in⋅m₁ × r₂ × r₃)
-    S_flat₂ = batched_mul(core_flat₂, U₂)                   # (r_out⋅r_in⋅m₁ × m₂ × r₃)
-    S₂ = reshape(S_flat₂, r_out, r_in, m₁, m₂, r₃)          # (r_out × r_in × m₁ × m₂ × r₃)
-
-    # contract r₃ -> m₃
-    core_flat₃ = reshape(S₂, r_out * r_in * m₁ * m₂, r₃)    # (r_out⋅r_in⋅m₁⋅m₂ × r₃)
-    S_flat₃ = core_flat₃ * U₃                               # (r_out⋅r_in⋅m₁⋅m₂ × m₃)
-    S = reshape(S_flat₃, r_out, r_in, m₁, m₂, m₃)           # (r_out × r_in × m₁ × m₂ × m₃)
+    k = 2 + 1 # contract r₁ -> m₁ (batching over r₂ × r₃)
+    core₂ = mode_k_product(core, U_modes[1], k)    # (r_out × r_in × m₁ × r₂ × r₃)
+    k = 2 + 2 # contract r₂ -> m₂ (batching over r₃)
+    core₃ = mode_k_product(core₂, U_modes[2], k)   # (r_out × r_in × m₁ × m₂ × r₃)
+    k = 2 + 3 # contract r₃ -> m₃
+    S = mode_k_product(core₃, U_modes[3], k)       # (r_out × r_in × m₁ × m₂ × m₃)
     return S
 end
 
 # # expand Tucker core tensor into full tensor via mode products with factor matrices
 # function expand_tucker_core_tensor(
-#     core::DenseArray{C}, U_modes::NTuple{D,DenseMatrix{C}}
-# ) where {C<:Complex,D}
-#     modes = size.(U_modes, 2)
-#     # core: (r_out, r_in, dims...)
+#     core::AbstractArray{N,D},           # (r_out, r_in, dims...)
+#     U_modes::NTuple{D,DenseMatrix{N}}   # (rₖ × mₖ)
+# ) where {N<:Number,D}
 #     for d in 1:D
-#         # k-mode tensor product via matricization + batched multiplication
 #         k = d + 2
-#         dims = size(core)
-#         ranks_before = dims[1:(k - 1)]
-#         ranks_after = dims[(k + 1):end]
-
-#         core_flat = reshape(core, prod(ranks_before), dims[k], prod(ranks_after))
-#         S_flat = batched_mul(core_flat, U_modes[d])
-#         core = reshape(S_flat, ranks_before..., modes[d], ranks_after...)
+#         core = mode_k_product(core, U_modes[d], k)
 #     end
 #     return core
 # end
