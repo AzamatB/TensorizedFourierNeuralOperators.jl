@@ -5,8 +5,8 @@ struct FourierNeuralOperatorBlock{
     Skip₁ <: Lux.AbstractLuxLayer,
     Norm₁ <: Lux.AbstractLuxLayer,
     Norm₂ <: Lux.AbstractLuxLayer
-} <: Lux.AbstractLuxContainerLayer{(:conv, :channel_mlp, :skip₁, :skip₂, :norm₁, :norm₂)}
-    conv::FactorizedSpectralConv{D}
+} <: Lux.AbstractLuxContainerLayer{(:spectral_conv, :channel_mlp, :skip₁, :skip₂, :norm₁, :norm₂)}
+    spectral_conv::FactorizedSpectralConv{D}
     channel_mlp::ChannelMLP
     skip₁::Skip₁
     skip₂::SoftGating{D}
@@ -18,7 +18,7 @@ function FourierNeuralOperatorBlock(
     channels::Pair{Int,Int}, modes::NTuple{D,Int}; rank_ratio::Float32=0.5f0
 ) where {D}
     (channels_in, channels_out) = channels
-    conv = FactorizedSpectralConv(channels, modes; rank_ratio)
+    spectral_conv = FactorizedSpectralConv(channels, modes; rank_ratio)
     # 2-layer channel MLP with GeLU activation in between
     pointwise_kernel = ntuple(_ -> 1, Val(D))
     channels = (channels_out => channels_out)
@@ -37,7 +37,7 @@ function FourierNeuralOperatorBlock(
     Norm₁ = typeof(norm₁)
     Norm₂ = typeof(norm₂)
     return FourierNeuralOperatorBlock{D, ChannelMLP, Skip₁, Norm₁, Norm₂}(
-        conv, channel_mlp, skip₁, skip₂, norm₁, norm₂
+        spectral_conv, channel_mlp, skip₁, skip₂, norm₁, norm₂
     )
 end
 
@@ -49,7 +49,7 @@ function (model::FourierNeuralOperatorBlock)(
     # second skip connection
     (x_skip₂, _) = model.skip₂(x, params.skip₂, states.skip₂)
     # spectral convolution
-    (x_conv, _) = model.conv(x, params.conv, states.conv)
+    (x_conv, _) = model.spectral_conv(x, params.spectral_conv, states.spectral_conv)
     # first normalization
     (x_norm₁, _) = model.norm₁(x_conv, params.norm₁, states.norm₁)
     # first residual addition followed by first activation

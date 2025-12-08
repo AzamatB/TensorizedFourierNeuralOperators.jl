@@ -33,14 +33,14 @@ function FactorizedSpectralConv(
     )
 end
 
-function Lux.initialparameters(rng::AbstractRNG, conv::FactorizedSpectralConv{D}) where {D}
-    fourier_transform = conv.fourier_transform
+function Lux.initialparameters(rng::AbstractRNG, layer::FactorizedSpectralConv{D}) where {D}
+    fourier_transform = layer.fourier_transform
     T = eltype(fourier_transform)
     C = complex(T)
     modes = fourier_transform.modes
-    channels_in = conv.channels_in
-    channels_out = conv.channels_out
-    rank_ratio = conv.rank_ratio
+    channels_in = layer.channels_in
+    channels_out = layer.channels_out
+    rank_ratio = layer.rank_ratio
 
     # determine ranks for Tucker decomposition
     (rank_in, rank_out, rank_modes) = compute_tucker_rank_dims(channels_in, channels_out, modes, rank_ratio)
@@ -59,38 +59,38 @@ function Lux.initialparameters(rng::AbstractRNG, conv::FactorizedSpectralConv{D}
     return params
 end
 
-function Lux.initialstates(rng::AbstractRNG, conv::FactorizedSpectralConv)
+function Lux.initialstates(rng::AbstractRNG, layer::FactorizedSpectralConv)
     return (;) # stateless
 end
 
-function Lux.parameterlength(conv::FactorizedSpectralConv{D}) where {D}
-    modes = conv.fourier_transform.modes
-    channels_in = conv.channels_in
-    channels_out = conv.channels_out
-    rank_ratio = conv.rank_ratio
+function Lux.parameterlength(layer::FactorizedSpectralConv{D}) where {D}
+    modes = layer.fourier_transform.modes
+    channels_in = layer.channels_in
+    channels_out = layer.channels_out
+    rank_ratio = layer.rank_ratio
 
     # determine ranks for Tucker decomposition
     (rank_in, rank_out, rank_modes) = compute_tucker_rank_dims(channels_in, channels_out, modes, rank_ratio)
 
     core_len = rank_out * rank_in * prod(rank_modes)
-    U_in_len = conv.channels_in * rank_in
-    U_out_len = conv.channels_out * rank_out
+    U_in_len = layer.channels_in * rank_in
+    U_out_len = layer.channels_out * rank_out
     U_modes_len = sum(rank_modes[d] * modes[d] for d in 1:D)
     len = core_len + U_in_len + U_out_len + U_modes_len
     return len
 end
 
-function Lux.statelength(conv::FactorizedSpectralConv)
+function Lux.statelength(layer::FactorizedSpectralConv)
     return 0
 end
 
 # forward pass definition
 # (spatial_dims..., channels_in, batch) -> (spatial_dims..., channels_out, batch)
-function (conv::FactorizedSpectralConv{D})(
+function (layer::FactorizedSpectralConv{D})(
     x::AbstractArray, params::NamedTuple, states::NamedTuple
 ) where {D}
     # x: (spatial_dims..., channels_in, batch)
-    fourier_transform = conv.fourier_transform
+    fourier_transform = layer.fourier_transform
     # apply discrete Fourier transform: spatial_dims -> freq_dims
     ω = transform(fourier_transform, x)                    # (freq_dims..., channels_in, batch)
     # truncate higher frequencies: freq_dims -> modes
