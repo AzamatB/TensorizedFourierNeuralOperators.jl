@@ -48,7 +48,7 @@ end
 Random.seed!(1234)
 
 @testset "FourierNeuralOperators.jl" begin
-    @testset "1D TuckerSpectralConv" begin
+    @testset "1D FactorizedSpectralConv" begin
         # 1D configuration
         ch_in = 4
         ch_out = 8
@@ -57,7 +57,7 @@ Random.seed!(1234)
         rank_out = 4
         rank_modes = (8,)
 
-        layer = TuckerSpectralConv(
+        layer = FactorizedSpectralConv(
             ch_in => ch_out, modes;
             rank_in=rank_in, rank_out=rank_out, rank_modes=rank_modes
         )
@@ -83,7 +83,7 @@ Random.seed!(1234)
         check_gradients(layer, x, ps, st)
     end
 
-    @testset "2D TuckerSpectralConv" begin
+    @testset "2D FactorizedSpectralConv" begin
         # 2D configuration
         ch_in = 4
         ch_out = 8
@@ -92,7 +92,7 @@ Random.seed!(1234)
         rank_out = 4
         rank_modes = (6, 6)
 
-        layer = TuckerSpectralConv(
+        layer = FactorizedSpectralConv(
             ch_in => ch_out, modes;
             rank_in=rank_in, rank_out=rank_out, rank_modes=rank_modes
         )
@@ -112,7 +112,7 @@ Random.seed!(1234)
         check_gradients(layer, x, ps, st)
     end
 
-    @testset "3D TuckerSpectralConv" begin
+    @testset "3D FactorizedSpectralConv" begin
         # 3D configuration
         ch_in = 2
         ch_out = 4
@@ -121,7 +121,7 @@ Random.seed!(1234)
         rank_out = 2
         rank_modes = (4, 4, 4)
 
-        layer = TuckerSpectralConv(
+        layer = FactorizedSpectralConv(
             ch_in => ch_out, modes;
             rank_in=rank_in, rank_out=rank_out, rank_modes=rank_modes
         )
