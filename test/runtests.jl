@@ -1,4 +1,4 @@
-using TensorizedFourierNeuralOperators
+using FourierNeuralOperators
 using ReTest
 using Lux
 using Random
@@ -47,7 +47,7 @@ end
 # Set seed for reproducibility
 Random.seed!(1234)
 
-@testset "TensorizedFourierNeuralOperators.jl" begin
+@testset "FourierNeuralOperators.jl" begin
     @testset "1D TuckerSpectralConv" begin
         # 1D configuration
         ch_in = 4

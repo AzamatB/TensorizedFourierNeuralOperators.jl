@@ -184,7 +184,7 @@ function inverse(
     ω::AbstractArray{C,3},                   # (freq_dim, channels_out, batch)
     x::AbstractArray{R,3}                    # (spatial_dim, channels_in, batch)
 ) where {T,C<:Complex,R<:Real}
-    return irfft(ω, 1)                       # (spatial_dim, channels_out, batch)
+    return irfft(ω, size(x, 1), 1)           # (spatial_dim, channels_out, batch)
 end
 
 function compute_tucker_rank_dims(
@@ -232,8 +232,8 @@ struct ModeKProduct{K} end
 
 # mode-k tensor-matrix product via matricization followed by batched multiplication
 function (::ModeKProduct{K})(
-    tensor::AbstractArray{N,D}, matrix::AbstractMatrix{N}
-) where {K,N<:Number,D}
+    tensor::AbstractArray{T,D}, matrix::AbstractMatrix{T}
+) where {K,T<:Number,D}
     dims = size(tensor)
     dims_before = NTuple{K-1,Int}(ntuple(i -> dims[i],   Val(K-1)))
     dims_after  = NTuple{D-K,Int}(ntuple(i -> dims[K+i], Val(D-K)))
@@ -289,9 +289,9 @@ end
 
 # # expand Tucker core tensor into full tensor via mode products with factor matrices
 # function expand_tucker_core_tensor(
-#     core::AbstractArray{N,D},           # (r_out, r_in, dims...)
-#     U_modes::NTuple{D,DenseMatrix{N}}   # (rₖ × mₖ)
-# ) where {N<:Number,D}
+#     core::AbstractArray{T,D},           # (r_out, r_in, dims...)
+#     U_modes::NTuple{D,DenseMatrix{T}}   # (rₖ × mₖ)
+# ) where {T<:Number,D}
 #     for d in 1:D
 #         mode_k_product = ModeKProduct{d+2}()
 #         core = mode_k_product(core, U_modes[d])
