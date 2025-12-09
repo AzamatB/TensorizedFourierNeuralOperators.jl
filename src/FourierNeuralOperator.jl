@@ -8,7 +8,7 @@ end
 
 function FourierNeuralOperator{D}(
     channels_in::Int, channels_hidden::Int, channels_out::Int;
-    modes::NTuple{L,Int}=(32, 32, 32, 32), rank_ratio::Float32=0.5f0
+    modes::NTuple{L,Int}=(16, 16, 16, 16), rank_ratio::Float32=0.5f0
 ) where {D,L}
     channels = (channels_hidden => channels_hidden)
     pointwise_kernel = ntuple(_ -> 1, Val(D))
