@@ -1,4 +1,4 @@
-# FourierNeuralOperatorBlockier Neural Operator Block with Tucker–Factorized Spectral Convolution
+# Fourier Neural Operator Block with Tucker–Factorized Spectral Convolution
 struct FourierNeuralOperatorBlock{
     D,
     ChannelMLP <: Lux.AbstractLuxLayer,
