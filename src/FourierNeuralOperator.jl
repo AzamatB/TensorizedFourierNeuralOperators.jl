@@ -8,7 +8,7 @@ end
 
 function FourierNeuralOperator{D}(
     channels_in::Int, channels_hidden::Int, channels_out::Int;
-    modes::NTuple{L,Int}=(16, 16, 16, 16), rank_ratio::Float32=0.5f0
+    modes::NTuple{L,Int}=(8, 16, 16, 16), rank_ratio::Float32=0.5f0
 ) where {D,L}
     channels = (channels_hidden => channels_hidden)
     pointwise_kernel = ntuple(_ -> 1, Val(D))
@@ -35,9 +35,7 @@ function FourierNeuralOperator{D}(
     return FourierNeuralOperator{D,L,Lift,FNOBlocks,Project}(lift, fno_blocks, project)
 end
 
-function Lux.initialparameters(
-    rng::AbstractRNG, layer::FourierNeuralOperator{D,L}
-) where {D,L}
+function Lux.initialparameters(rng::AbstractRNG, layer::FourierNeuralOperator)
     lift = Lux.initialparameters(rng, layer.lift)
     fno_blocks = Lux.initialparameters(rng, layer.fno_blocks)
     project = Lux.initialparameters(rng, layer.project)

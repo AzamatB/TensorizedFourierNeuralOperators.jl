@@ -59,7 +59,7 @@ end
 # forward pass definition
 # (spatial_dims..., channels_in, batch) -> (spatial_dims..., channels_out, batch)
 function (layer::FactorizedSpectralConv{D})(
-    x::AbstractArray,                                  # (spatial_dims..., channels_in, batch)
+    x::AbstractArray,                               # (spatial_dims..., channels_in, batch)
     params::NamedTuple,
     states::NamedTuple
 ) where {D}
@@ -72,10 +72,9 @@ function (layer::FactorizedSpectralConv{D})(
     # (modes..., channels_in, batch) -> (modes..., channels_out, batch)
     y = compute_tensor_contractions(ω, params.U_in, params.U_out, S)
     # pad truncated frequencies with zeros to restore original frequency dimensions: modes -> freq_dims
-    y_padded = pad_constant(y, pad, false; dims=1:D)   # (freq_dims..., channels_out, batch)
+    y_padded = pad_constant(y, pad, zero(eltype(y)); dims=1:D) # (freq_dims..., channels_out, batch)
     # apply inverse discrete Fourier transform: freq_dims -> spatial_dims
-    output_c = inverse(layer, y_padded, x)             # (spatial_dims..., channels_out, batch)
-    output = real(output_c)
+    output = inverse(layer, y_padded, x)                       # (spatial_dims..., channels_out, batch)
     return (output, states)
 end
 
@@ -174,14 +173,23 @@ end
 
 function inverse(
     layer::FactorizedSpectralConv{D},
-    ω_shifted::AbstractArray{C,N},                   # (freq_dims..., channels_out, batch)
-    x::AbstractArray{T,N}                            # (spatial_dims..., channels_in, batch)
-) where {D,C<:Complex,T,N}
-    is_real = (T <: Real)
-    dims = (1 + is_real):D
-    ω = ifftshift(ω_shifted, dims)
-    y = is_real ? irfft(ω, size(x, 1), 1:D) : ifft(ω, 1:D)
-    return y                                         # (spatial_dims..., channels_out, batch)
+    ω_shifted::AbstractArray{C,N},                  # (freq_dims..., channels_out, batch)
+    x::AbstractArray{C,N}                           # (spatial_dims..., channels_in, batch)
+) where {D,C<:Complex,N}
+    ω = ifftshift(ω_shifted, 1:D)
+    y = ifft(ω, 1:D)                                # (spatial_dims..., channels_out, batch)
+    return y
+end
+
+function inverse(
+    layer::FactorizedSpectralConv{D},
+    ω_shifted::AbstractArray{C,N},                  # (freq_dims..., channels_out, batch)
+    x::AbstractArray{R,N}                           # (spatial_dims..., channels_in, batch)
+) where {D,C<:Complex,R<:Real,N}
+    ω = ifftshift(ω_shifted, 2:D)
+    y_c = irfft(ω, size(x, 1), 1:D)                 # (spatial_dims..., channels_out, batch)
+    y = real(y_c)
+    return y
 end
 
 function inverse(
@@ -189,7 +197,9 @@ function inverse(
     ω::AbstractArray{C,3},                           # (freq_dim, channels_out, batch)
     x::AbstractArray{R,3}                            # (spatial_dim, channels_in, batch)
 ) where {C<:Complex,R<:Real}
-    return irfft(ω, size(x, 1), 1)                   # (spatial_dim, channels_out, batch)
+    y_c = irfft(ω, size(x, 1), 1)                    # (spatial_dim, channels_out, batch)
+    y = real(y_c)
+    return y
 end
 
 # (modes..., ch_in, b) -> (modes..., ch_out, b)
