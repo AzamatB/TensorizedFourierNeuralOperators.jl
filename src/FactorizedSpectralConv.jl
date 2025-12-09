@@ -140,7 +140,7 @@ function transform_and_truncate(
     x::AbstractArray{R}                              # (spatial_dims..., channels, batch)
 ) where {D,R<:Real}
     dims = 1:D
-    # since input is real-valued, use rfft, to take advantage of skew-symmetry
+    # since input is real-valued use rfft to take advantage of skew-symmetry
     ω = rfft(x, dims)                                # (freq_dims..., channels, batch)
     # shift along every dimension except the 1st
     ω_shifted = fftshift(ω, 2:D)
