@@ -18,17 +18,17 @@ function FourierNeuralOperatorBlock(
     channels::Pair{Int,Int}, modes::NTuple{D,Int}; rank_ratio::Float32=0.5f0
 ) where {D}
     (channels_in, channels_out) = channels
+    pointwise_kernel = ntuple(_ -> 1, Val(D))
+    # channelwise linear skip layer as a pointwise convolutional layer
+    skip₁ = Conv(pointwise_kernel, channels)
+    skip₂ = SoftGating{D}(channels_in)
     spectral_conv = FactorizedSpectralConv(channels, modes; rank_ratio)
     # 2-layer channel MLP with GeLU activation in between
-    pointwise_kernel = ntuple(_ -> 1, Val(D))
     channels = (channels_out => channels_out)
     channel_mlp = Chain(
         Conv(pointwise_kernel, channels, gelu),
         Conv(pointwise_kernel, channels)
     )
-    # channelwise linear skip layer as a pointwise convolutional layer
-    skip₁ = Conv(pointwise_kernel, channels)
-    skip₂ = SoftGating{D}(channels_out)
     norm₁ = GroupNorm(channels_out, 1)
     norm₂ = GroupNorm(channels_out, 1)
 
@@ -72,7 +72,7 @@ function (layer::FourierNeuralOperatorBlock)(
     # spectral convolution
     (x_conv, _) = layer.spectral_conv(x, params.spectral_conv, states)
     # first normalization
-    (x_norm₁, _) = layer.norm₁(x_conv, params.norm₁, states)
+    (x_norm₁, state_norm₁) = layer.norm₁(x_conv, params.norm₁, states.norm₁)
     # first residual addition followed by first activation
     x_act = gelu.(x_norm₁ .+ x_skip₁)
     # 2-layer channel MLP
@@ -80,9 +80,10 @@ function (layer::FourierNeuralOperatorBlock)(
     # second residual addition
     x_res = x_mlp .+ x_skip₂
     # second normalization
-    (x_norm₂, _) = layer.norm₂(x_res, params.norm₂, states)
+    (x_norm₂, state_norm₂) = layer.norm₂(x_res, params.norm₂, states.norm₂)
     # final output: second activation
     output = gelu.(x_norm₂)
+    states_out = (; norm₁ = state_norm₁, norm₂ = state_norm₂)
     # update normalization states
-    return (output, states)
+    return (output, states_out)
 end

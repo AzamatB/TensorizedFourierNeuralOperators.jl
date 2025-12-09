@@ -16,7 +16,7 @@ end
 function Lux.initialparameters(rng::AbstractRNG, layer::FactorizedSpectralConv{D}) where {D}
     channels_in = layer.channels_in
     channels_out = layer.channels_out
-    modes = layer.modes
+    modes = 2 .* layer.modes .+ 1  # account for 0th and negative frequencies
     rank_ratio = layer.rank_ratio
 
     # determine ranks for Tucker decomposition
@@ -40,9 +40,9 @@ function Lux.initialstates(rng::AbstractRNG, layer::FactorizedSpectralConv)
 end
 
 function Lux.parameterlength(layer::FactorizedSpectralConv{D}) where {D}
-    modes = layer.modes
     channels_in = layer.channels_in
     channels_out = layer.channels_out
+    modes = 2 .* layer.modes .+ 1  # account for 0th and negative frequencies
     rank_ratio = layer.rank_ratio
     # determine ranks for Tucker decomposition
     (rank_in, rank_out, rank_modes) = compute_tucker_rank_dims(channels_in, channels_out, modes, rank_ratio)
@@ -66,7 +66,6 @@ function (layer::FactorizedSpectralConv{D})(
     params::NamedTuple,
     states::NamedTuple
 ) where {D}
-    ft = layer.ft
     # apply discrete Fourier transform: spatial_dims -> modes
     # (freq_dims..., channels_in, batch), (modes..., channels_in, batch)
     (ω, pad) = transform_and_truncate(layer, x)
@@ -78,7 +77,7 @@ function (layer::FactorizedSpectralConv{D})(
     # pad truncated frequencies with zeros to restore original frequency dimensions: modes -> freq_dims
     y_padded = pad_constant(y, pad, false; dims=1:D)   # (freq_dims..., channels_out, batch)
     # apply inverse discrete Fourier transform: freq_dims -> spatial_dims
-    output_c = inverse(ft, y_padded, x)                # (spatial_dims..., channels_out, batch)
+    output_c = inverse(layer, y_padded, x)             # (spatial_dims..., channels_out, batch)
     output = real(output_c)
     return (output, states)
 end
@@ -89,7 +88,6 @@ function compute_tucker_rank_dims(
     modes::NTuple{D,Int},
     rank_ratio::Float32
 ) where {D}
-    modes = 2 .* modes .+ 1  # account for negative frequencies
     rank_in = max(1, floor(Int, channels_in * rank_ratio))
     rank_out = max(1, floor(Int, channels_out * rank_ratio))
     rank_modes = ntuple(i -> max(1, floor(Int, modes[i] * rank_ratio)), Val(D))
