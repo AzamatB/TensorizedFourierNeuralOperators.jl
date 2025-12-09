@@ -2,25 +2,21 @@
 struct FactorizedSpectralConv{D} <: Lux.AbstractLuxLayer
     channels_in::Int
     channels_out::Int
+    modes::NTuple{D,Int}
     rank_ratio::Float32
-    ft::FourierTransform{ComplexF32,NTuple{D,Int}}
 end
 
 function FactorizedSpectralConv(
     channels::Pair{Int,Int}, modes::NTuple{D,Int}; rank_ratio::Float32=0.5f0
 ) where {D}
     (channels_in, channels_out) = channels
-    ft = FourierTransform{ComplexF32}(modes, true)
-    return FactorizedSpectralConv{D}(channels_in, channels_out, rank_ratio, ft)
+    return FactorizedSpectralConv{D}(channels_in, channels_out, modes, rank_ratio)
 end
 
 function Lux.initialparameters(rng::AbstractRNG, layer::FactorizedSpectralConv{D}) where {D}
-    ft = layer.ft
-    T = eltype(ft)
-    C = complex(T)
-    modes = ft.modes
     channels_in = layer.channels_in
     channels_out = layer.channels_out
+    modes = layer.modes
     rank_ratio = layer.rank_ratio
 
     # determine ranks for Tucker decomposition
@@ -29,11 +25,11 @@ function Lux.initialparameters(rng::AbstractRNG, layer::FactorizedSpectralConv{D
     scale = sqrt(2.0f0 / (channels_in + channels_out))
 
     # core tensor ordering: (rank_out, rank_in, rank_modes...)
-    core = scale .* glorot_uniform(rng, C, rank_out, rank_in, rank_modes...)
-    U_in = glorot_uniform(rng, C, channels_in, rank_in)     # (ch_in × r_in)
-    U_out = glorot_uniform(rng, C, channels_out, rank_out)   # (ch_out × r_out)
+    core = scale .* glorot_uniform(rng, ComplexF32, rank_out, rank_in, rank_modes...)
+    U_in  = glorot_uniform(rng, ComplexF32, channels_in, rank_in)     # (ch_in × r_in)
+    U_out = glorot_uniform(rng, ComplexF32, channels_out, rank_out)   # (ch_out × r_out)
     # U_modes: (rank_dim × mode_dim)
-    U_modes = ntuple(i -> glorot_uniform(rng, C, rank_modes[i], modes[i]), Val(D))
+    U_modes = ntuple(i -> glorot_uniform(rng, ComplexF32, rank_modes[i], modes[i]), Val(D))
 
     params = (; core, U_modes, U_in, U_out)
     return params
@@ -44,7 +40,7 @@ function Lux.initialstates(rng::AbstractRNG, layer::FactorizedSpectralConv)
 end
 
 function Lux.parameterlength(layer::FactorizedSpectralConv{D}) where {D}
-    modes = layer.ft.modes
+    modes = layer.modes
     channels_in = layer.channels_in
     channels_out = layer.channels_out
     rank_ratio = layer.rank_ratio
@@ -73,7 +69,7 @@ function (layer::FactorizedSpectralConv{D})(
     ft = layer.ft
     # apply discrete Fourier transform: spatial_dims -> modes
     # (freq_dims..., channels_in, batch), (modes..., channels_in, batch)
-    (ω, pad) = transform_and_truncate(ft, x)
+    (ω, pad) = transform_and_truncate(layer, x)
     # (rank_out, rank_in, rank_modes...) -> (rank_out, rank_in, modes...)
     S = expand_tucker_core_tensor(params.core, params.U_modes)
     # perform tensor contractions in truncated frequency space:
@@ -125,9 +121,9 @@ end
 
 # complex-valued version
 function transform_and_truncate(
-    ft::FourierTransform{T,NTuple{D,Int}},
+    layer::FactorizedSpectralConv{D},
     x::AbstractArray{C}                              # (spatial_dims..., channels, batch)
-) where {T,D,C<:Complex}
+) where {D,C<:Complex}
     dims = 1:D
     # compute discrete Fourier transform: spatial_dims -> freq_dims
     ω = fft(x, dims)                                 # (freq_dims..., channels, batch)
@@ -135,7 +131,7 @@ function transform_and_truncate(
     ω_shifted = fftshift(ω, dims)                    # (freq_dims..., channels, batch)
     # take center crops in all dimensions
     shape_ω = size(ω_shifted)[dims]
-    modes = ft.modes
+    modes = layer.modes
     slices = NTuple{D,UnitRange{Int}}(ntuple(d -> center_slice(shape_ω[d], modes[d]), Val(D)))
     # truncate higher frequencies: freq_dims -> modes
     ω_truncated = view(ω_shifted, slices..., :, :)   # (modes..., channels, batch)
@@ -145,9 +141,9 @@ end
 
 # real-valued version
 function transform_and_truncate(
-    ft::FourierTransform{T,NTuple{D,Int}},
+    layer::FactorizedSpectralConv{D},
     x::AbstractArray{R}                              # (spatial_dims..., channels, batch)
-) where {T,D,R<:Real}
+) where {D,R<:Real}
     dims = 1:D
     # since input is real-valued, use rfft, to take advantage of skew-symmetry
     ω = rfft(x, dims)                                # (freq_dims..., channels, batch)
@@ -155,7 +151,7 @@ function transform_and_truncate(
     ω_shifted = fftshift(ω, 2:D)
     # take 1:k₁ in dim 1 and center crops in the rest
     shape_ω = size(ω_shifted)[dims]
-    modes = ft.modes
+    modes = layer.modes
     slices = NTuple{D,UnitRange{Int}}(ntuple(
         d -> (d == 1) ? left_slice(modes[d]) : center_slice(shape_ω[d], modes[d]), Val(D)
     ))
@@ -167,38 +163,38 @@ end
 
 # real-valued 1D version
 function transform_and_truncate(
-    ft::FourierTransform{T,NTuple{1,Int}},
-    x::AbstractArray{R,3}                    # (spatial_dim, channels, batch)
-) where {T,R<:Real}
+    layer::FactorizedSpectralConv{1},
+    x::AbstractArray{R,3}                            # (spatial_dim, channels, batch)
+) where {R<:Real}
     # since input is real-valued, use rfft, to take advantage of skew-symmetry
-    ω = rfft(x, 1)                           # (freq_dim, channels, batch)
-    # take 1:k
+    ω = rfft(x, 1)                                   # (freq_dim, channels, batch)
+    # take 1:(2k + 1)
     shape_ω = size(ω)[1:1]
-    slice = left_slice(ft.modes[1])
+    slice = left_slice(layer.modes[1])
     # truncate higher frequencies: freq_dim -> modes
-    ω_truncated = view(ω, slice, :, :)       # (modes, channels, batch)
+    ω_truncated = view(ω, slice, :, :)               # (modes, channels, batch)
     pad = compute_padding(shape_ω, (slice,))
     return (ω_truncated, pad)
 end
 
 function inverse(
-    ft::FourierTransform{T,NTuple{D,Int}},
-    ω_shifted::AbstractArray{C,N},           # (freq_dims..., channels_out, batch)
-    x::AbstractArray{F,N}                    # (spatial_dims..., channels_in, batch)
-) where {T,D,C<:Complex,F,N}
-    is_real = (F <: Real)
+    layer::FactorizedSpectralConv{D},
+    ω_shifted::AbstractArray{C,N},                   # (freq_dims..., channels_out, batch)
+    x::AbstractArray{T,N}                            # (spatial_dims..., channels_in, batch)
+) where {D,C<:Complex,T,N}
+    is_real = (T <: Real)
     dims = (1 + is_real):D
     ω = ifftshift(ω_shifted, dims)
     y = is_real ? irfft(ω, size(x, 1), 1:D) : ifft(ω, 1:D)
-    return y                                 # (spatial_dims..., channels_out, batch)
+    return y                                         # (spatial_dims..., channels_out, batch)
 end
 
 function inverse(
-    ft::FourierTransform{T,NTuple{1,Int}},
-    ω::AbstractArray{C,3},                   # (freq_dim, channels_out, batch)
-    x::AbstractArray{R,3}                    # (spatial_dim, channels_in, batch)
-) where {T,C<:Complex,R<:Real}
-    return irfft(ω, size(x, 1), 1)           # (spatial_dim, channels_out, batch)
+    layer::FactorizedSpectralConv{1},
+    ω::AbstractArray{C,3},                           # (freq_dim, channels_out, batch)
+    x::AbstractArray{R,3}                            # (spatial_dim, channels_in, batch)
+) where {C<:Complex,R<:Real}
+    return irfft(ω, size(x, 1), 1)                   # (spatial_dim, channels_out, batch)
 end
 
 # (modes..., ch_in, b) -> (modes..., ch_out, b)

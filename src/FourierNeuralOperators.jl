@@ -10,7 +10,6 @@ using Lux
 using FFTW
 using Random
 using NNlib: batched_mul, pad_constant
-using NeuralOperators: FourierTransform
 
 include("FactorizedSpectralConv.jl")
 include("SoftGating.jl")
