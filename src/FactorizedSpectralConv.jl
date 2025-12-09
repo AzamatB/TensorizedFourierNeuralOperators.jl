@@ -87,6 +87,19 @@ function (layer::FactorizedSpectralConv{D})(
     return (output, states)
 end
 
+function compute_tucker_rank_dims(
+    channels_in::Int,
+    channels_out::Int,
+    modes::NTuple{D,Int},
+    rank_ratio::Float32
+) where {D}
+    modes = 2 .* modes .+ 1  # account for negative frequencies
+    rank_in = max(1, floor(Int, channels_in * rank_ratio))
+    rank_out = max(1, floor(Int, channels_out * rank_ratio))
+    rank_modes = ntuple(i -> max(1, floor(Int, modes[i] * rank_ratio)), Val(D))
+    return (rank_in, rank_out, rank_modes)
+end
+
 function left_slice(k::Int)
     stop = 2k + 1
     # 0th mode followed by 2k positive modes = (2k + 1) elements
@@ -110,6 +123,7 @@ function compute_padding(shape::NTuple{D,Int}, slices::NTuple{D,UnitRange{Int}})
     return pad
 end
 
+# complex-valued version
 function transform_and_truncate(
     ft::FourierTransform{T,NTuple{D,Int}},
     x::AbstractArray{C}                              # (spatial_dims..., channels, batch)
@@ -129,6 +143,7 @@ function transform_and_truncate(
     return (ω_truncated, pad)
 end
 
+# real-valued version
 function transform_and_truncate(
     ft::FourierTransform{T,NTuple{D,Int}},
     x::AbstractArray{R}                              # (spatial_dims..., channels, batch)
@@ -150,6 +165,7 @@ function transform_and_truncate(
     return (ω_truncated, pad)
 end
 
+# real-valued 1D version
 function transform_and_truncate(
     ft::FourierTransform{T,NTuple{1,Int}},
     x::AbstractArray{R,3}                    # (spatial_dim, channels, batch)
@@ -183,19 +199,6 @@ function inverse(
     x::AbstractArray{R,3}                    # (spatial_dim, channels_in, batch)
 ) where {T,C<:Complex,R<:Real}
     return irfft(ω, size(x, 1), 1)           # (spatial_dim, channels_out, batch)
-end
-
-function compute_tucker_rank_dims(
-    channels_in::Int,
-    channels_out::Int,
-    modes::NTuple{D,Int},
-    rank_ratio::Float32
-) where {D}
-    modes = 2 .* modes .+ 1  # account for negative frequencies
-    rank_in = max(1, floor(Int, channels_in * rank_ratio))
-    rank_out = max(1, floor(Int, channels_out * rank_ratio))
-    rank_modes = ntuple(i -> max(1, floor(Int, modes[i] * rank_ratio)), Val(D))
-    return (rank_in, rank_out, rank_modes)
 end
 
 # (modes..., ch_in, b) -> (modes..., ch_out, b)
