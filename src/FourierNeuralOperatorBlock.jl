@@ -18,7 +18,7 @@ function FourierNeuralOperatorBlock(
     channels::Pair{Int,Int}, modes::NTuple{D,Int}; rank_ratio::Float32=0.5f0
 ) where {D}
     (channels_in, channels_out) = channels
-    pointwise_kernel = ntuple(_ -> 1, Val(D))
+    pointwise_kernel = ntuple(_ -> 1, static(D))
     # channelwise linear skip layer as a pointwise convolutional layer
     skip₁ = Conv(pointwise_kernel, channels)
     skip₂ = SoftGating{D}(channels_in)

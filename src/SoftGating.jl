@@ -10,7 +10,7 @@ end
 
 function Lux.initialparameters(rng::AbstractRNG, layer::SoftGating{D}) where {D}
     # match neuraloperator implementation: initialize to identity gating (all ones)
-    spatial_dims = ntuple(_ -> 1, Val(D))
+    spatial_dims = ntuple(_ -> 1, static(D))
     weights = ones(Float32, spatial_dims..., layer.channels, 1)
     params = (; weights)
     return params

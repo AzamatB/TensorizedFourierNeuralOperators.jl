@@ -10,17 +10,18 @@ function FourierNeuralOperator{D}(
     channels_in::Int, channels_hidden::Int, channels_out::Int;
     modes::NTuple{L,Int}=(8, 16, 16, 16), rank_ratio::Float32=0.5f0
 ) where {D,L}
+    dim = static(D)
     channels = (channels_hidden => channels_hidden)
-    pointwise_kernel = ntuple(_ -> 1, Val(D))
+    pointwise_kernel = ntuple(_ -> 1, dim)
     # lift layer: 2-layer channel MLP, i.e. pointwise Conv with GeLU activation in between
     lift = Chain(
         Conv(pointwise_kernel, channels_in => channels_hidden, gelu),
         Conv(pointwise_kernel, channels)
     )
     # stack of L FNO blocks
-    fno_blocks_tuple = ntuple(Val(L)) do l
+    fno_blocks_tuple = ntuple(static(L)) do l
         m = modes[l]
-        block_modes = ntuple(_ -> m, Val(D))
+        block_modes = ntuple(_ -> m, dim)
         FourierNeuralOperatorBlock(channels, block_modes; rank_ratio)
     end
     fno_blocks = Chain(fno_blocks_tuple...)

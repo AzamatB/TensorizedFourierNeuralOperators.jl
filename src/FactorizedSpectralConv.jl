@@ -26,7 +26,7 @@ function Lux.initialparameters(rng::AbstractRNG, layer::FactorizedSpectralConv{D
     U_in  = glorot_uniform(rng, ComplexF32, channels_in, rank_in)     # (ch_in × r_in)
     U_out = glorot_uniform(rng, ComplexF32, channels_out, rank_out)   # (ch_out × r_out)
     # U_modes: (rank_dim × mode_dim)
-    U_modes = ntuple(i -> glorot_uniform(rng, ComplexF32, rank_modes[i], modes[i]), Val(D))
+    U_modes = ntuple(i -> glorot_uniform(rng, ComplexF32, rank_modes[i], modes[i]), static(D))
 
     params = (; core, U_modes, U_in, U_out)
     return params
@@ -86,7 +86,7 @@ function compute_tucker_rank_dims(
 ) where {D}
     rank_in = clamp(floor(Int, channels_in * rank_ratio), 1, channels_in)
     rank_out = clamp(floor(Int, channels_out * rank_ratio), 1, channels_out)
-    rank_modes = ntuple(Val(D)) do d
+    rank_modes = ntuple(static(D)) do d
         mode = modes[d]
         clamp(floor(Int, mode * rank_ratio), 1, mode)
     end
@@ -108,7 +108,7 @@ function center_slice(len::Int, k::Int)
 end
 
 function compute_padding(shape::NTuple{D,Int}, slices::NTuple{D,UnitRange{Int}}) where {D}
-    pad = NTuple{2D,Int}(ntuple(Val(2D)) do n
+    pad = NTuple{2D,Int}(ntuple(static(2D)) do n
         d = (n + 1) ÷ 2
         slice = slices[d]
         isodd(n) ? (slice.start - 1) : (shape[d] - slice.stop)
@@ -129,7 +129,7 @@ function transform_and_truncate(
     # take center crops in all dimensions
     shape_ω = size(ω_shifted)[dims]
     modes = layer.modes
-    slices = NTuple{D,UnitRange{Int}}(ntuple(d -> center_slice(shape_ω[d], modes[d]), Val(D)))
+    slices = NTuple{D,UnitRange{Int}}(ntuple(d -> center_slice(shape_ω[d], modes[d]), static(D)))
     # truncate higher frequencies: freq_dims -> modes
     ω_truncated = view(ω_shifted, slices..., :, :)   # (modes..., channels, batch)
     pad = compute_padding(shape_ω, slices)
@@ -150,7 +150,7 @@ function transform_and_truncate(
     shape_ω = size(ω_shifted)[dims]
     modes = layer.modes
     slices = NTuple{D,UnitRange{Int}}(ntuple(
-        d -> (d == 1) ? left_slice(modes[d]) : center_slice(shape_ω[d], modes[d]), Val(D)
+        d -> (d == 1) ? left_slice(modes[d]) : center_slice(shape_ω[d], modes[d]), static(D)
     ))
     # truncate higher frequencies: freq_dims -> modes
     ω_truncated = view(ω_shifted, slices..., :, :)   # (modes..., channels, batch)
@@ -214,7 +214,7 @@ function compute_tensor_contractions(
     (ch_out, r_out) = size(U_out)
     dims = size(x)
     b = dims[end]
-    modes = NTuple{N-2,Int}(ntuple(i -> dims[i], Val(N - 2)))
+    modes = NTuple{N-2,Int}(ntuple(i -> dims[i], static(N - 2)))
 
     # project input: contract ch_in -> r_in (batching over batch)
     x_flat = reshape(x, :, ch_in, b)                          # (prod(modes), ch_in, b)
@@ -274,8 +274,8 @@ function (::ModeKProduct{K})(
     tensor::AbstractArray{T,D}, matrix::AbstractMatrix{T}
 ) where {K,T<:Number,D}
     dims = size(tensor)
-    dims_before = NTuple{K-1,Int}(ntuple(i -> dims[i],   Val(K-1)))
-    dims_after  = NTuple{D-K,Int}(ntuple(i -> dims[K+i], Val(D-K)))
+    dims_before = NTuple{K-1,Int}(ntuple(i -> dims[i],   static(K-1)))
+    dims_after  = NTuple{D-K,Int}(ntuple(i -> dims[K+i], static(D-K)))
     (dim_in, dim_out) = size(matrix)
 
     tensor_flat = reshape(tensor, prod(dims_before), dim_in, prod(dims_after))
