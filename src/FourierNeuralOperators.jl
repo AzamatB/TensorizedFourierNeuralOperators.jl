@@ -7,14 +7,22 @@ module FourierNeuralOperators
 export FactorizedSpectralConv, FourierNeuralOperator, FourierNeuralOperatorBlock
 
 using AbstractFFTs: fft, rfft, ifft, irfft, fftshift, ifftshift
+using CUDA
 using Lux
 using Random
 using NNlib: batched_mul, pad_constant
 using Static
 
+CUDA.allowscalar(false)   # for performance
+
 include("FactorizedSpectralConv.jl")
+
 include("SoftGating.jl")
+
 include("FourierNeuralOperatorBlock.jl")
+
 include("FourierNeuralOperator.jl")
+
+include("OptimalTransportNeuralOperator.jl")
 
 end # module FourierNeuralOperators

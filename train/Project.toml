@@ -1,0 +1,19 @@
+name = "OptimalTransportNeuralOperators"
+authors = ["Azamat Berdyshev <aberdysh@gmail.com>"]
+
+[deps]
+CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
+Enzyme = "7da242da-08ed-463a-9acd-ee780be4f1d9"
+FourierNeuralOperators = "fad0b1a5-a77e-47d0-848c-9f04c700d34f"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+Lux = "b2108857-7c20-44ae-9111-449ecde12c47"
+OptimalTransportEncoding = "312e035e-a767-4ce3-8384-49b2c9cb5f83"
+Optimisers = "3bd65402-5787-11e9-1adc-39752487f4e2"
+Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+Reactant = "3c362404-f566-11ee-1572-e11a4b42c853"
+Static = "aedffcd0-7271-4cad-89d0-dc628f76c6d3"
+
+[sources]
+FourierNeuralOperators = {path = ".."}
+OptimalTransportEncoding = {path = "../../OptimalTransportEncoding.jl"}
