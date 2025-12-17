@@ -2,6 +2,7 @@ import FourierNeuralOperators as FNO
 import OptimalTransportEncoding as OTE
 
 using FourierNeuralOperators
+using FourierNeuralOperators: OptimalTransportNeuralOperator
 using OptimalTransportEncoding
 using OptimalTransportEncoding: OTEDataSample
 using Printf
@@ -69,9 +70,10 @@ train_state = Training.TrainState(model, params, states, optimiser)
 loss_func = MSELoss()
 
 # precompile model for validation evaluation
-compiled_model = @compile model(x₁, ts.parameters, Lux.testmode(ts.states))
+states_val = Lux.testmode(train_state.states)
+compiled_model = @compile model(x₁, train_state.parameters, states_val)
 loss_val = compute_dataset_loss(
-    compiled_model, train_state.parameters, Lux.testmode(train_state.states), (xs_val, ys_val)
+    compiled_model, train_state.parameters, states_val, (xs_val, ys_val)
 )
 @printf "Validation loss before training:  %4.6f\n" loss_val
 
