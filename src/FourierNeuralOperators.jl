@@ -9,8 +9,6 @@ export FactorizedSpectralConv, FourierNeuralOperator, FourierNeuralOperatorBlock
 using AbstractFFTs: fft, rfft, ifft, irfft, fftshift, ifftshift
 using Lux
 using Random
-using Reactant
-using Reactant: TracedRNumber
 using NNlib: batched_mul, pad_constant
 using Static
 
