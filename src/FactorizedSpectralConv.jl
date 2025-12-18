@@ -59,7 +59,7 @@ end
 # forward pass definition
 # (spatial_dims..., channels_in, batch) -> (spatial_dims..., channels_out, batch)
 function (layer::FactorizedSpectralConv{D})(
-    x::DenseArray{<:Number},                                     # (spatial_dims..., channels_in, batch)
+    x::DenseArray{<:Number},                           # (spatial_dims..., channels_in, batch)
     params::NamedTuple,
     states::NamedTuple
 ) where {D}
@@ -72,9 +72,9 @@ function (layer::FactorizedSpectralConv{D})(
     # (modes..., channels_in, batch) -> (modes..., channels_out, batch)
     y = compute_tensor_contractions(ω, params.U_in, params.U_out, S)
     # pad truncated frequencies with zeros to restore original frequency dimensions: modes -> freq_dims
-    y_padded = pad_constant(y, pad, zero(eltype(y)); dims=1:D)   # (freq_dims..., channels_out, batch)
+    y_padded = pad_constant(y, pad, zero(eltype(y)))   # (freq_dims..., channels_out, batch)
     # apply inverse discrete Fourier transform: freq_dims -> spatial_dims
-    output = inverse(layer, y_padded, x)                         # (spatial_dims..., channels_out, batch)
+    output = inverse(layer, y_padded, x)               # (spatial_dims..., channels_out, batch)
     return (output, states)
 end
 
@@ -107,11 +107,16 @@ function center_slice(len::Int, k::Int)
     return start:stop
 end
 
-function compute_padding(shape::NTuple{D,Int}, slices::NTuple{D,UnitRange{Int}}) where {D}
-    pad = NTuple{2D,Int}(ntuple(static(2D)) do n
+function compute_padding(shape::NTuple{N,Int}, slices::NTuple{D,UnitRange{Int}}) where {N,D}
+    pad = NTuple{2N,Int}(ntuple(static(2N)) do n
         d = (n + 1) ÷ 2
-        slice = slices[d]
-        isodd(n) ? (slice.start - 1) : (shape[d] - slice.stop)
+        if d > D
+            0
+        elseif isodd(n)
+            (slices[d].start - 1)
+        else
+            shape[d] - slices[d].stop
+        end
     end)
     return pad
 end
@@ -127,7 +132,7 @@ function transform_and_truncate(
     # shift along every dimension
     ω_shifted = fftshift(ω, dims)                    # (freq_dims..., channels, batch)
     # take center crops in all dimensions
-    shape_ω = size(ω_shifted)[dims]
+    shape_ω = size(ω_shifted)
     modes = layer.modes
     slices = NTuple{D,UnitRange{Int}}(ntuple(d -> center_slice(shape_ω[d], modes[d]), static(D)))
     # truncate higher frequencies: freq_dims -> modes
@@ -147,7 +152,7 @@ function transform_and_truncate(
     # shift along every dimension except the 1st
     ω_shifted = fftshift(ω, 2:D)
     # take 1:k₁ in dim 1 and center crops in the rest
-    shape_ω = size(ω_shifted)[dims]
+    shape_ω = size(ω_shifted)
     modes = layer.modes
     slices = NTuple{D,UnitRange{Int}}(ntuple(
         d -> (d == 1) ? left_slice(modes[d]) : center_slice(shape_ω[d], modes[d]), static(D)
@@ -166,7 +171,7 @@ function transform_and_truncate(
     # since input is real-valued, use rfft, to take advantage of skew-symmetry
     ω = rfft(x, 1)                                   # (freq_dim, channels, batch)
     # take 1:(2k + 1)
-    shape_ω = size(ω)[1:1]
+    shape_ω = size(ω)
     slice = left_slice(layer.modes[1])
     # truncate higher frequencies: freq_dim -> modes
     ω_truncated = view(ω, slice, :, :)               # (modes, channels, batch)
