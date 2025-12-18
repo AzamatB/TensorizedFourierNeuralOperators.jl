@@ -129,9 +129,8 @@ loss_func = MSELoss()
 
 # precompile model for validation evaluation
 states_val = Lux.testmode(train_state.states)
-compiled_model = @compile model(x₁, train_state.parameters, states_val)
 loss_val = compute_dataset_loss(
-    compiled_model, train_state.parameters, states_val, (xs_val, ys_val)
+    model, train_state.parameters, states_val, (xs_val, ys_val)
 )
 @printf "Validation loss before training:  %4.6f\n" loss_val
 
