@@ -235,33 +235,33 @@ function compute_tensor_contractions(
     return output
 end
 
-function permute_mode_dims(x::DenseArray{T,3}) where {T}
+function permute_mode_dims(x::AbstractArray{T,3}) where {T}
     # (m₁, r_in, b) -> (r_in, b, m₁)
     x_perm = permutedims(x, (2, 3, 1))
     return x_perm
 end
-function permute_mode_dims(x::DenseArray{T,4}) where {T}
+function permute_mode_dims(x::AbstractArray{T,4}) where {T}
     # (m₁, m₂, r_in, b) -> (r_in, b, m₁, m₂)
     x_perm = permutedims(x, (3, 4, 1, 2))
     return x_perm
 end
-function permute_mode_dims(x::DenseArray{T,5}) where {T}
+function permute_mode_dims(x::AbstractArray{T,5}) where {T}
     # (m₁, m₂, m₃, r_in, b) -> (r_in, b, m₁, m₂, m₃)
     x_perm = permutedims(x, (4, 5, 1, 2, 3))
     return x_perm
 end
 
-function unpermute_mode_dims(x_perm::DenseArray{T,3}) where {T}
+function unpermute_mode_dims(x_perm::AbstractArray{T,3}) where {T}
     # (r_out, b, m₁) -> (m₁, r_out, b)
     x = permutedims(x_perm, (3, 1, 2))
     return x
 end
-function unpermute_mode_dims(x_perm::DenseArray{T,4}) where {T}
+function unpermute_mode_dims(x_perm::AbstractArray{T,4}) where {T}
     # (r_out, b, m₁, m₂) -> (m₁, m₂, r_out, b)
     x = permutedims(x_perm, (3, 4, 1, 2))
     return x
 end
-function unpermute_mode_dims(x_perm::DenseArray{T,5}) where {T}
+function unpermute_mode_dims(x_perm::AbstractArray{T,5}) where {T}
     # (r_out, b, m₁, m₂, m₃) -> (m₁, m₂, m₃, r_out, b)
     x = permutedims(x_perm, (3, 4, 5, 1, 2))
     return x
