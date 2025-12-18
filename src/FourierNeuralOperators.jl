@@ -14,8 +14,7 @@ using Reactant: TracedRNumber
 using NNlib: batched_mul, pad_constant
 using Static
 
-const RFloat32 = Union{TracedRNumber{Float32},Float32}
-const RComplexF32 = Union{TracedRNumber{ComplexF32},ComplexF32}
+const RNumber{N} = Union{TracedRNumber{N},N} where {N<:Number}
 
 include("FactorizedSpectralConv.jl")
 
