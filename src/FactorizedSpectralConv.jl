@@ -205,10 +205,10 @@ end
 
 # (modes..., ch_in, b) -> (modes..., ch_out, b)
 function compute_tensor_contractions(
-    x::DenseArray{C,N},                                       # (modes..., ch_in, b)
+    x::AbstractArray{C,N},                                    # (modes..., ch_in, b)
     U_in::DenseMatrix{C},                                     # (ch_in, r_in)
     U_out::DenseMatrix{C},                                    # (ch_out, r_out)
-    S::DenseArray{C,N}                                        # (r_out, r_in, modes...)
+    S::AbstractArray{C,N}                                     # (r_out, r_in, modes...)
 ) where {C<:RNumber{ComplexF32},N}
     (ch_in, r_in) = size(U_in)
     (ch_out, r_out) = size(U_out)
