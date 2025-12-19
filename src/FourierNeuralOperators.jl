@@ -6,11 +6,14 @@ module FourierNeuralOperators
 
 export FactorizedSpectralConv, FourierNeuralOperator, FourierNeuralOperatorBlock
 
+using Reactant: TracedRNumber
 using AbstractFFTs: fft, rfft, ifft, irfft, fftshift, ifftshift
 using Lux
 using Random
 using NNlib: batched_mul, pad_constant
 using Static
+
+const RNumber{N} = Union{TracedRNumber{N},N} where {N<:Number}
 
 include("FactorizedSpectralConv.jl")
 

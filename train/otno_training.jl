@@ -12,18 +12,15 @@ using Static
 using Random
 using Serialization
 
-using CUDA
-using CUDA: DeviceMemory
-using Zygote
+using Reactant
+using Enzyme
 using Lux
-using LuxCUDA
 using Optimisers
 using LinearAlgebra
 
-CUDA.allowscalar(false)  # disallow slow scalar operations on GPU
-
-const device = gpu_device(; force=true)   # error if no functional GPU device
-const cpu = cpu_device()                  # move results back to host for inspection
+Reactant.set_default_backend("gpu")            # "gpu" = CUDA backend (via XLA/PJRT)
+const device = reactant_device(; force=true)   # error if no functional Reactant GPU device
+const cpu = cpu_device()                       # move results back to host for inspection
 
 # set random seed for reproducibility
 const rng = Random.default_rng()
@@ -94,7 +91,6 @@ function train_model(
     # instantiate training state
     train_state = Training.TrainState(model, params, states, optimiser)
     loss_func = MSELoss()
-    ad_backend = AutoZygote()
 
     # precompile model for validation evaluation
     states_val = Lux.testmode(train_state.states)
@@ -108,7 +104,7 @@ function train_model(
         loss_train = 0.0f0
         for (xᵢ, yᵢ) in zip(xs_train, ys_train)
             _, loss, _, train_state = Training.single_train_step!(
-                ad_backend, loss_func, (xᵢ, yᵢ), train_state
+                AutoEnzyme(), loss_func, (xᵢ, yᵢ), train_state
             )
             loss_train += loss
         end

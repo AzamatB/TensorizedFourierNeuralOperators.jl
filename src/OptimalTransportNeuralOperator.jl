@@ -15,10 +15,10 @@ function OptimalTransportNeuralOperator{D}(
 end
 
 function (model::OptimalTransportNeuralOperator)(
-    (x, decoding_indices)::Tuple{DenseArray{Float32},DenseVector{Int32}},
+    (x, decoding_indices)::Tuple{DenseArray{R},DenseVector{I}},
     params::NamedTuple,
     states::NamedTuple
-)
+) where {R<:RNumber{Float32},I<:RNumber{Int32}}
     (y, state_fno) = model.fno(x, params.fno, states.fno)
     y_vec = reshape(y, :)
     # pullback to physical space using decoding indices
@@ -32,8 +32,8 @@ function evaluate_dataset_mse(
     model::OptimalTransportNeuralOperator,
     params::NamedTuple,
     states::NamedTuple,
-    (xs, ys)::Tuple{Vector{<:Tuple{DenseArray{Float32},DenseVector{Int32}}},Vector{<:DenseVector{Float32}}}
-)
+    (xs, ys)::Tuple{Vector{<:Tuple{DenseArray{R},DenseVector{I}}},Vector{<:DenseVector{R}}}
+) where {R<:RNumber{Float32},I<:RNumber{Int32}}
     loss = 0.0f0
     for (x, y) in zip(xs, ys)
         (ŷ, _) = model(x, params, states)
@@ -52,8 +52,8 @@ function evaluate_dataset_mrl2e(
     model::OptimalTransportNeuralOperator,
     params::NamedTuple,
     states::NamedTuple,
-    (xs, ys)::Tuple{Vector{<:Tuple{DenseArray{Float32},DenseVector{Int32}}},Vector{<:DenseVector{Float32}}}
-)
+    (xs, ys)::Tuple{Vector{<:Tuple{DenseArray{R},DenseVector{I}}},Vector{<:DenseVector{R}}}
+) where {R<:RNumber{Float32},I<:RNumber{Int32}}
     loss = 0.0f0
     for (x, y) in zip(xs, ys)
         (ŷ, _) = model(x, params, states)
@@ -72,8 +72,8 @@ function evaluate_dataset_mape(
     model::OptimalTransportNeuralOperator,
     params::NamedTuple,
     states::NamedTuple,
-    (xs, ys)::Tuple{Vector{<:Tuple{DenseArray{Float32},DenseVector{Int32}}},Vector{<:DenseVector{Float32}}}
-)
+    (xs, ys)::Tuple{Vector{<:Tuple{DenseArray{R},DenseVector{I}}},Vector{<:DenseVector{R}}}
+) where {R<:RNumber{Float32},I<:RNumber{I}}
     loss = 0.0f0
     for (x, y) in zip(xs, ys)
         (ŷ, _) = model(x, params, states)
