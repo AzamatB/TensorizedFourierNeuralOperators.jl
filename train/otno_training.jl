@@ -133,8 +133,8 @@ end
 
 ############################################################################################
 
-const num_epochs = 400
+const num_epochs = 300
 const dataset_dir = normpath(joinpath(@__DIR__, "..", "datasets/ShapeNet-Car"))
 const otno_model_save_dir = normpath(joinpath(@__DIR__, "trained_otno_model"))
 
-@time (model, params_opt, states) = train_model(rng, dataset_dir; num_epochs, otno_model_save_dir)
+@time (model, params, states) = train_model(rng, dataset_dir; num_epochs, otno_model_save_dir)
