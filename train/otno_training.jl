@@ -1,5 +1,8 @@
 # main script to train the Optimal Transport Neural Operator (OTNO) model on ShapeNet-Car dataset
 
+using Pkg
+Pkg.activate(@__DIR__)
+
 import FourierNeuralOperators as FNO
 import OptimalTransportEncoding as OTE
 

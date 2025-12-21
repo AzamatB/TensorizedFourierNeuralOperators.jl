@@ -29,7 +29,7 @@ end
 
 # mean squared error (MSE) over a dataset
 function evaluate_dataset_mse(
-    model::OptimalTransportNeuralOperator,
+    model,
     params::NamedTuple,
     states::NamedTuple,
     (xs, ys)::Tuple{Vector{<:Tuple{DenseArray{R},DenseVector{I}}},Vector{<:DenseVector{R}}}
@@ -49,7 +49,7 @@ end
 
 # mean relative L² (%) error over a dataset
 function evaluate_dataset_mrl2e(
-    model::OptimalTransportNeuralOperator,
+    model,
     params::NamedTuple,
     states::NamedTuple,
     (xs, ys)::Tuple{Vector{<:Tuple{DenseArray{R},DenseVector{I}}},Vector{<:DenseVector{R}}}
@@ -69,7 +69,7 @@ end
 
 # mean absolute percentage (%) error (MAPE) over a dataset
 function evaluate_dataset_mape(
-    model::OptimalTransportNeuralOperator,
+    model,
     params::NamedTuple,
     states::NamedTuple,
     (xs, ys)::Tuple{Vector{<:Tuple{DenseArray{R},DenseVector{I}}},Vector{<:DenseVector{R}}}
