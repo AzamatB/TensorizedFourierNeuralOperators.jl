@@ -3,13 +3,14 @@ struct FourierNeuralOperatorBlock{
     D,
     ChannelMLP <: Lux.AbstractLuxLayer,
     Skip₁ <: Lux.AbstractLuxLayer,
+    Skip₂ <: Lux.AbstractLuxLayer,
     Norm₁ <: Lux.AbstractLuxLayer,
     Norm₂ <: Lux.AbstractLuxLayer
 } <: Lux.AbstractLuxContainerLayer{(:spectral_conv, :channel_mlp, :skip₁, :skip₂, :norm₁, :norm₂)}
     spectral_conv::FactorizedSpectralConv{D}
     channel_mlp::ChannelMLP
     skip₁::Skip₁
-    skip₂::SoftGating{D}
+    skip₂::Skip₂
     norm₁::Norm₁
     norm₂::Norm₂
 end
@@ -21,7 +22,7 @@ function FourierNeuralOperatorBlock(
     pointwise_kernel = ntuple(_ -> 1, static(D))
     # channelwise linear skip layer as a pointwise convolutional layer
     skip₁ = Conv(pointwise_kernel, channels)
-    skip₂ = SoftGating{D}(channels_in)
+    skip₂ = Conv(pointwise_kernel, channels)
     spectral_conv = FactorizedSpectralConv(channels, modes; rank_ratio)
     # 2-layer channel MLP with GeLU activation in between
     channels = (channels_out => channels_out)
@@ -34,9 +35,10 @@ function FourierNeuralOperatorBlock(
 
     ChannelMLP = typeof(channel_mlp)
     Skip₁ = typeof(skip₁)
+    Skip₂ = typeof(skip₂)
     Norm₁ = typeof(norm₁)
     Norm₂ = typeof(norm₂)
-    return FourierNeuralOperatorBlock{D, ChannelMLP, Skip₁, Norm₁, Norm₂}(
+    return FourierNeuralOperatorBlock{D, ChannelMLP, Skip₁, Skip₂, Norm₁, Norm₂}(
         spectral_conv, channel_mlp, skip₁, skip₂, norm₁, norm₂
     )
 end
@@ -57,10 +59,6 @@ function (layer::FourierNeuralOperatorBlock)(
     # 2-layer channel MLP
     (x_mlp, state_mlp) = layer.channel_mlp(x_act, params.channel_mlp, states.channel_mlp)
     # second residual addition
-    # Note: this will fail with dimensionality mismatch unless channels_in == channels_out.
-    # This is the case for FNO blocks inside FNO, but for generality, consider replacing the
-    # SoftGating with a pointwise Conv(channels_in => channels_out) to allow channel
-    # dimension changes.
     x_res = x_mlp .+ x_skip₂
     # second normalization
     (x_norm₂, state_norm₂) = layer.norm₂(x_res, params.norm₂, states.norm₂)
