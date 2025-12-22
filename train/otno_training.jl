@@ -66,7 +66,7 @@ function train_model(
     features₁ = first(first(dataset_train.xs))
     D = ndims(features₁) - 2
     channels_in = size(features₁, D + 1)
-    channels_hidden = 128
+    channels_hidden = 256
     channels_out = 1
 
     # instantiate FNO model
@@ -133,7 +133,7 @@ end
 
 ############################################################################################
 
-const num_epochs = 300
+const num_epochs = 400
 const dataset_dir = normpath(joinpath(@__DIR__, "..", "datasets/ShapeNet-Car"))
 const otno_model_save_dir = normpath(joinpath(@__DIR__, "trained_otno_model"))
 
