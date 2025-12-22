@@ -1,7 +1,7 @@
 function load_datasets(
     dataset_dir::String,
     extension::String;
-    split::NamedTuple=(; train=0.93, val=0.02, test=0.05)
+    split::NamedTuple=(; train=0.9, val=0.05, test=0.05)
 )
     @assert sum(split) == 1.0
     data_sample_paths = readdir(dataset_dir; join=true)

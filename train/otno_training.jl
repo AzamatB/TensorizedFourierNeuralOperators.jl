@@ -66,7 +66,7 @@ function train_model(
     features₁ = first(first(dataset_train.xs))
     D = ndims(features₁) - 2
     channels_in = size(features₁, D + 1)
-    channels_hidden = channels_in
+    channels_hidden = 128
     channels_out = 1
 
     # instantiate FNO model
