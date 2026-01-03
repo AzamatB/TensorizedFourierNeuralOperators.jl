@@ -16,7 +16,6 @@ using Random
 using Serialization
 
 using Reactant
-using Enzyme
 using Lux
 using Optimisers
 using LinearAlgebra
@@ -96,11 +95,12 @@ function train_model(
     loss_func = MSELoss()
 
     # precompile model for validation evaluation
-    x₁ = first(xs_val)
     states_val = Lux.testmode(train_state.states)
-    compiled_model = @compile model(x₁, train_state.parameters, states_val)
-    loss_val_min = evaluate_dataset_mse(
-        compiled_model, train_state.parameters, states_val, (xs_val, ys_val)
+    compiled_evaluate_dataset_mse = @compile evaluate_dataset_mse(
+        model, train_state.parameters, states_val, (xs_val, ys_val)
+    )
+    loss_val_min = compiled_evaluate_dataset_mse(
+        model, train_state.parameters, states_val, (xs_val, ys_val)
     )
     @printf "Validation loss before training:  %4.6f\n" loss_val_min
 
@@ -118,8 +118,8 @@ function train_model(
 
         # evaluate the model on validation set
         states_val = Lux.testmode(train_state.states)
-        loss_val = evaluate_dataset_mse(
-            compiled_model, train_state.parameters, states_val, (xs_val, ys_val)
+        loss_val = compiled_evaluate_dataset_mse(
+            model, train_state.parameters, states_val, (xs_val, ys_val)
         )
         @printf "Epoch [%3d]: Validation loss  %4.6f\n" epoch loss_val
         if loss_val < loss_val_min
@@ -130,7 +130,7 @@ function train_model(
     end
     @info "Training completed."
     output = (;
-        model=compiled_model,
+        model=train_state.model,
         params=train_state.parameters,
         states=Lux.testmode(train_state.states)
     )
