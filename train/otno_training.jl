@@ -96,10 +96,10 @@ function train_model(
 
     # precompile model for validation evaluation
     states_val = Lux.testmode(train_state.states)
-    compiled_evaluate_dataset_mse = @compile evaluate_dataset_mse(
+    evaluate_dataset_mse_compiled = @compile evaluate_dataset_mse(
         model, train_state.parameters, states_val, (xs_val, ys_val)
     )
-    loss_val_min = compiled_evaluate_dataset_mse(
+    loss_val_min = evaluate_dataset_mse_compiled(
         model, train_state.parameters, states_val, (xs_val, ys_val)
     )
     @printf "Validation loss before training:  %4.6f\n" loss_val_min
@@ -118,7 +118,7 @@ function train_model(
 
         # evaluate the model on validation set
         states_val = Lux.testmode(train_state.states)
-        loss_val = compiled_evaluate_dataset_mse(
+        loss_val = evaluate_dataset_mse_compiled(
             model, train_state.parameters, states_val, (xs_val, ys_val)
         )
         @printf "Epoch [%3d]: Validation loss  %4.6f\n" epoch loss_val
